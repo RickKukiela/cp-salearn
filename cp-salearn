@@ -1,0 +1,99 @@
+#!/usr/local/bin/php -q
+<?php
+/*******************************************************************
+LICENSED UNDER THE WTFPL (http://www.wtfpl.net/txt/copying/)
+Original Author: Rick Kukiela (rick@sublymesystems.com)
+
+This script is configured for Cpanel servers using exim and spamassassin.
+You may modify this script and redistribute at your discretion =)
+
+** Make sure line 1 points at your CLI enabled php binary. **
+
+HOW IT WORKS: You must decide the name of the imap folders you are going
+have your users place their spam and ham training emails into. The default
+setting is ReportSpam and ReportHam. Assuming you go with the defaults,
+each IMAP user must create two IMAP folders on their account named accordingly.
+When a user receives a spam mail they should move it to their ReportSpam folder
+and when they receive a ham mail, they should COPY it to the ReportHam folder.
+
+Please keep in mind that this script will EMPTY the report folders for each user,
+every single time it runs (every hour unless cron is changed to run less often). Make
+sure users know NOT to move ham messages and only copy them or they will lose
+their emails once this script runs.
+
+INSTALLING THIS SCRIPT:
+1. Place this script inside your home directory.
+2. chmod 755 cp-salearn (make executable)
+3. Add ONE of the following crontab entries:
+	(MAKE SURE YOU DO THIS AS THE USER THAT OWNS THE ACCOUNT AND NOT ROOT!)
+
+	# CRON ENTRY WITH EMAIL LOG ENABLED:
+	@hourly /path/to/cp-salearn
+
+	# CRON ENTRY WITH EMAIL LOG DISABLED:
+	@hourly /path/to/cp-salearn >/dev/null 2>&1
+
+4. Teach your users to set up their report folders and how to use them.
+5. Complete configuration section below:
+
+*********************************************************************/
+
+// Set path to sa-learn binary
+$salearn = "/usr/local/bin/sa-learn";
+
+// Set $homedir to your site's home directory. Omit trailing slash!
+$homedir = "/home/fts";
+
+// Set the name of your IMAP Report SPAM folder
+// DO NOT include the dot used on the local file system (ReportSpam, not .ReportSpam)
+$spamFolder = "ReportSpam";
+
+// Set the name of your IMAP Report HAM folder
+// DO NOT include the dot used on the local file system (ReportHam, not .ReportHam)
+$hamFolder = "ReportHam";
+
+// DO NOT EDIT BELOW HERE UNLESS YOU KNOW WHAT YOU ARE DOING!
+//////////////////////////////////////////////////////////////
+
+
+
+$maildir = $homedir . "/mail";
+$_HAMDIRS = array();
+$_SPAMDIRS = array();
+
+// get spam dirs
+$dirs = shell_exec("cd {$maildir} && find . -name \".{$spamFolder}\"");
+$dirs = explode("\n", trim($dirs));
+foreach($dirs as $spampath) {
+	if(substr($spampath, 0, 1) == ".") { $spampath = substr($spampath, 1); }
+	array_push($_SPAMDIRS, $maildir . $spampath . "/cur");
+}
+
+// get ham dirs
+$dirs = shell_exec("cd {$maildir} && find . -name \".{$hamFolder}\"");
+$dirs = explode("\n", trim($dirs));
+foreach($dirs as $hampath) {
+	if(substr($hampath, 0, 1) == ".") { $hampath = substr($hampath, 1); }
+	array_push($_HAMDIRS, $maildir . $hampath . "/cur");
+}
+
+// Run sa-learn on all spam dirs
+echo "\nRunning sa-learn on " . sizeof($_SPAMDIRS) . " SPAM folders...\n";
+foreach($_SPAMDIRS as $curpath) {
+	$curuser = explode("/", $curpath);
+	$curuser = $curuser[sizeof($curuser)-3];
+	echo "{$curuser}: " . shell_exec("{$salearn} --spam {$curpath}");
+	shell_exec("/bin/rm -rf {$curpath}/*");
+}
+
+// Run sa-learn on all spam dirs
+echo "\nRunning sa-learn on " . sizeof($_SPAMDIRS) . " HAM folders...\n";
+foreach($_HAMDIRS as $curpath) {
+	$curuser = explode("/", $curpath);
+	$curuser = $curuser[sizeof($curuser)-3];
+	echo "{$curuser}: " . shell_exec("{$salearn} --ham {$curpath}");
+	// remove files
+	shell_exec("/bin/rm -rf {$curpath}/*");
+}
+
+?>
