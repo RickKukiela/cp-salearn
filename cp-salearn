@@ -42,7 +42,7 @@ INSTALLING THIS SCRIPT:
 $salearn = "/usr/local/bin/sa-learn";
 
 // Set $homedir to your site's home directory. Omit trailing slash!
-$homedir = "/home/fts";
+$homedir = "/home/dir";
 
 // Set the name of your IMAP Report SPAM folder
 // DO NOT include the dot used on the local file system (ReportSpam, not .ReportSpam)
